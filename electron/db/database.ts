@@ -1,16 +1,17 @@
 import Database from 'better-sqlite3';
 
 export function initializeDatabase(dbPath: string): Database.Database {
-    const db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
+  const db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
 
-    db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS repair_operations (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
       job_id           TEXT UNIQUE NOT NULL,
       source_photo_id  INTEGER,
       source_app       TEXT DEFAULT 'manual',
       original_path    TEXT NOT NULL,
+      reference_path   TEXT,
       repaired_path    TEXT,
       strategy         TEXT NOT NULL,
       status           TEXT NOT NULL DEFAULT 'queued',
@@ -38,5 +39,11 @@ export function initializeDatabase(dbPath: string): Database.Database {
     );
   `);
 
-    return db;
+  try {
+    db.exec("ALTER TABLE repair_operations ADD COLUMN reference_path TEXT;");
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  return db;
 }

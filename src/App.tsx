@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { RepairWizard } from './components/RepairWizard/RepairWizard';
 import { ImportStep } from './components/RepairWizard/steps/ImportStep';
 import { AnalysisStep } from './components/RepairWizard/steps/AnalysisStep';
@@ -20,6 +20,7 @@ function App() {
   const [targetFile, setTargetFile] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [strategyConfig, setStrategyConfig] = useState<any>(null);
+  const [activeJobId, setActiveJobId] = useState<string>('');
 
   const handleFileSelect = (filepath: string) => {
     setTargetFile(filepath);
@@ -32,11 +33,15 @@ function App() {
   };
 
   const handleExecute = (config: any) => {
-    setStrategyConfig(config);
+    setStrategyConfig({
+      ...config,
+      filePath: targetFile
+    });
     setCurrentStep(3);
   };
 
-  const handleRepairComplete = () => {
+  const handleRepairComplete = (jobId: string) => {
+    setActiveJobId(jobId);
     setCurrentStep(4);
   };
 
@@ -44,6 +49,7 @@ function App() {
     setTargetFile('');
     setAnalysisResult(null);
     setStrategyConfig(null);
+    setActiveJobId('');
     setCurrentStep(0);
   };
 
@@ -72,7 +78,7 @@ function App() {
       ) : <div />}
 
       {/* 4. Result */}
-      <ResultStep onRestart={handleRestart} />
+      <ResultStep jobId={activeJobId} onRestart={handleRestart} />
 
     </RepairWizard>
   );

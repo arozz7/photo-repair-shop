@@ -1,7 +1,7 @@
 import fs from 'fs';
-import { parseJpegMarkers } from '../lib/jpeg/parser';
-import { analyzeEntropyMap } from '../lib/jpeg/entropy';
-import { ExifToolService, ExifMetadata } from '../lib/exiftool/ExifToolService';
+import { parseJpegMarkers } from '../lib/jpeg/parser.js';
+import { analyzeEntropyMap } from '../lib/jpeg/entropy.js';
+import { ExifToolService, ExifMetadata } from '../lib/exiftool/ExifToolService.js';
 
 export type CorruptionType =
     | 'missing_soi'
@@ -59,7 +59,14 @@ export class FileAnalyzer {
 
         if (fileSize === 0) return result;
 
-        result.metadata = await ExifToolService.getMetadata(filePath);
+        console.log(`[FileAnalyzer] Starting metadata extraction for ${filePath}...`);
+        try {
+            result.metadata = await ExifToolService.getMetadata(filePath);
+            console.log(`[FileAnalyzer] Metadata extracted successfully.`);
+        } catch (e: any) {
+            console.error(`[FileAnalyzer] Metadata extraction failed:`, e);
+            throw e;
+        }
 
         if (result.metadata?.errors && result.metadata.errors.length > 0) {
             result.isCorrupted = true;
@@ -130,6 +137,7 @@ export class FileAnalyzer {
             });
         }
 
+        console.log(`[FileAnalyzer] Analysis complete. IsCorrupted: ${result.isCorrupted}`);
         return result;
     }
 }

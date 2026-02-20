@@ -9,7 +9,27 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['better-sqlite3', 'exiftool-vendored']
+            }
+          }
+        }
       },
+      preload: {
+        input: 'electron/preload.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: 'cjs',
+                entryFileNames: '[name].cjs'
+              }
+            }
+          }
+        }
+      }
     }),
   ],
   test: {

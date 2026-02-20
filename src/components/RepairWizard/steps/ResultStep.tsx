@@ -3,10 +3,28 @@ import { CheckCircle2, Download, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ResultStepProps {
+    jobId: string;
     onRestart: () => void;
 }
 
-export const ResultStep: React.FC<ResultStepProps> = ({ onRestart }) => {
+export const ResultStep: React.FC<ResultStepProps> = ({ jobId, onRestart }) => {
+    const [saving, setSaving] = React.useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            // @ts-ignore
+            const savePath = await window.electronAPI.saveOutput(jobId, 'repaired_photo.jpg');
+            if (savePath) {
+                console.log('Successfully saved to:', savePath);
+                // Optionally show a toaster/alert here
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+        } finally {
+            setSaving(false);
+        }
+    };
     return (
         <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto text-center">
             <motion.div
@@ -23,9 +41,12 @@ export const ResultStep: React.FC<ResultStepProps> = ({ onRestart }) => {
             </p>
 
             <div className="flex gap-4">
-                <button className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg active:scale-95">
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg active:scale-95 disabled:opacity-50">
                     <Download className="w-5 h-5" />
-                    Save Output File
+                    {saving ? 'Saving...' : 'Save Output File'}
                 </button>
 
                 <button
