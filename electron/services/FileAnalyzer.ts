@@ -10,7 +10,8 @@ export type CorruptionType =
     | 'truncated'
     | 'mcu_misalignment'
     | 'metadata_corrupt'
-    | 'raw_unreadable';
+    | 'raw_unreadable'
+    | 'hollow_header';
 
 export interface RepairStrategySuggestion {
     strategy: 'header-grafting' | 'preview-extraction' | 'marker-sanitization';
@@ -135,6 +136,35 @@ export class FileAnalyzer {
                 confidence: 'medium',
                 reason: 'General JPEG corruption; grafting a healthy header may resolve rendering issues.'
             });
+        }
+
+        // Hollow File Detection
+        if (fileSize < 50 * 1024 && result.metadata?.resolution) {
+            const [widthStr, heightStr] = result.metadata.resolution.split('x');
+            const width = parseInt(widthStr, 10);
+            const height = parseInt(heightStr, 10);
+            if (!isNaN(width) && !isNaN(height)) {
+                const megapixels = (width * height) / 1000000;
+                if (megapixels > 1.0) {
+                    result.isCorrupted = true;
+                    if (!result.corruptionTypes.includes('hollow_header')) {
+                        result.corruptionTypes.push('hollow_header');
+                    }
+
+                    const existingStrategy = result.suggestedStrategies.find(s => s.strategy === 'header-grafting');
+                    if (existingStrategy) {
+                        existingStrategy.confidence = 'high';
+                        existingStrategy.reason = 'Hollow File detected: File size is too small for its reported resolution. The high-res bitstream is missing or overwritten by a thumbnail.';
+                    } else {
+                        result.suggestedStrategies.push({
+                            strategy: 'header-grafting',
+                            requiresReference: true,
+                            confidence: 'high',
+                            reason: 'Hollow File detected: File size is too small for its reported resolution. The high-res bitstream is missing or overwritten by a thumbnail.'
+                        });
+                    }
+                }
+            }
         }
 
         console.log(`[FileAnalyzer] Analysis complete. IsCorrupted: ${result.isCorrupted}`);

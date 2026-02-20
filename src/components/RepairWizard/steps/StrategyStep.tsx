@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings2, Zap, Shield, Database, CheckCircle2 } from 'lucide-react';
 import type { AnalysisResult } from '../../../../electron/services/FileAnalyzer';
 import { motion } from 'framer-motion';
@@ -12,6 +12,23 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
     const [selectedStrategy, setSelectedStrategy] = useState<string>(analysis.suggestedStrategies[0]?.strategy || 'header-grafting');
     const [useReference, setUseReference] = useState(true);
     const [referencePath, setReferencePath] = useState<string>('');
+    const [isSearchingDonor, setIsSearchingDonor] = useState(false);
+
+    useEffect(() => {
+        if (selectedStrategy === 'header-grafting' && !referencePath && analysis.filePath) {
+            setIsSearchingDonor(true);
+            // @ts-ignore
+            window.electronAPI.referenceAutoSearch(analysis.filePath)
+                .then((matchedPath: string | null) => {
+                    if (matchedPath) setReferencePath(matchedPath);
+                    setIsSearchingDonor(false);
+                })
+                .catch((e: any) => {
+                    console.error("Auto-search failed:", e);
+                    setIsSearchingDonor(false);
+                });
+        }
+    }, [selectedStrategy, analysis.filePath]);
 
     const handleStart = () => {
         onExecute({
@@ -91,15 +108,21 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
                                 type="text"
                                 readOnly
                                 value={referencePath}
-                                placeholder="Select a healthy JPEG with matching dimensions..."
+                                placeholder={isSearchingDonor ? "Scanning Reference Library..." : "Select a healthy JPEG with matching dimensions..."}
                                 className="flex-1 bg-background border border-surface-hover rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary"
                             />
                             <button
                                 onClick={handleSelectDonor}
-                                className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors border border-primary/20">
+                                disabled={isSearchingDonor}
+                                className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors border border-primary/20 disabled:opacity-50">
                                 Browse
                             </button>
                         </div>
+                        {referencePath && !isSearchingDonor && (
+                            <p className="mt-2 text-xs text-success flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Donor file loaded and ready.
+                            </p>
+                        )}
                     </div>
 
                     <label className="flex items-center gap-3 cursor-pointer group">
