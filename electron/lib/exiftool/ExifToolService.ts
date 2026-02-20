@@ -19,7 +19,7 @@ export class ExifToolService {
 
     static getInstance(): ExifTool {
         if (!this.instance) {
-            this.instance = new ExifTool({ taskTimeoutMillis: 10000, maxProcs: 2 });
+            this.instance = new ExifTool({ taskTimeoutMillis: 5000 });
         }
         return this.instance;
     }

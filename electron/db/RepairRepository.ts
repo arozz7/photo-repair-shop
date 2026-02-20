@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 
-export interface RepairOperation {
+export interface JobStatus {
     id: number;
     job_id: string;
     source_photo_id: number | null;
@@ -19,6 +19,8 @@ export interface RepairOperation {
     created_at: string;
     completed_at: string | null;
 }
+
+export interface RepairOperation extends JobStatus { }
 
 export interface CreateJobInput {
     job_id: string;

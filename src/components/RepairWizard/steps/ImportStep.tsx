@@ -6,9 +6,16 @@ interface ImportStepProps {
 }
 
 export const ImportStep: React.FC<ImportStepProps> = ({ onFileSelect }) => {
-    // In a real electron app, we'd use window.electron.ipcRenderer to trigger a file dialog
-    const handleSimulateSelect = () => {
-        onFileSelect('/simulated/path/to/corrupt_image.jpg');
+    const handleSelectClick = async () => {
+        try {
+            // @ts-ignore
+            const selectedPath = await window.electronAPI.showOpenDialog();
+            if (selectedPath) {
+                onFileSelect(selectedPath);
+            }
+        } catch (err: any) {
+            console.error('File selection failed:', err);
+        }
     };
 
     return (
@@ -23,7 +30,7 @@ export const ImportStep: React.FC<ImportStepProps> = ({ onFileSelect }) => {
             </p>
 
             <button
-                onClick={handleSimulateSelect}
+                onClick={handleSelectClick}
                 className="group relative flex items-center gap-3 px-8 py-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 active:scale-95"
             >
                 <UploadCloud className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />

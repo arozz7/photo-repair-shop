@@ -1,4 +1,6 @@
-import { RepairRepository } from '../db/RepairRepository';
+import { RepairRepository, JobStatus } from '../db/RepairRepository.js';
+
+export type { JobStatus };
 
 export interface JobHandler {
     (jobId: string): Promise<void>;

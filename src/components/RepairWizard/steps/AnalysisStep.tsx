@@ -13,6 +13,7 @@ export const AnalysisStep: React.FC<AnalysisStepProps> = ({ filePath, onAnalysis
     const [analyzing, setAnalyzing] = useState(true);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [viewMode, setViewMode] = useState<'diagnostics' | 'hex'>('diagnostics');
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Stub data for hex view demonstration
     const stubBuffer = new Uint8Array([
@@ -28,38 +29,41 @@ export const AnalysisStep: React.FC<AnalysisStepProps> = ({ filePath, onAnalysis
     ];
 
     useEffect(() => {
-        // Simulate IPC call to backend to analyze the file
-        const timer = setTimeout(() => {
-            const mockResult: AnalysisResult = {
-                jobId: 'sim_123',
-                filePath,
-                fileType: 'jpeg',
-                fileSize: 4096000,
-                isCorrupted: true,
-                corruptionTypes: ['invalid_markers', 'missing_header'],
-                metadata: null,
-                embeddedPreviewAvailable: false,
-                suggestedStrategies: [
-                    {
-                        strategy: 'header-grafting',
-                        confidence: 'high',
-                        requiresReference: true,
-                        reason: 'Missing SOS Header blocks decoding entirely.'
-                    },
-                    {
-                        strategy: 'marker-sanitization',
-                        confidence: 'high',
-                        requiresReference: false,
-                        reason: 'Found invalid FF markers within bitstream.'
-                    }
-                ]
-            };
-            setResult(mockResult);
-            setAnalyzing(false);
-        }, 2500);
+        let isMounted = true;
 
-        return () => clearTimeout(timer);
+        async function runAnalysis() {
+            try {
+                // @ts-ignore
+                const realResult = await window.electronAPI.analyzeFile(filePath);
+                if (isMounted) {
+                    setResult(realResult);
+                    setAnalyzing(false);
+                }
+            } catch (err: any) {
+                console.error("Analysis Failed:", err);
+                if (isMounted) {
+                    setErrorMsg(err.message || String(err));
+                    setAnalyzing(false);
+                }
+            }
+        }
+
+        runAnalysis();
+
+        return () => { isMounted = false; };
     }, [filePath]);
+
+    if (errorMsg) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full max-w-lg mx-auto text-center space-y-6">
+                <ShieldAlert className="w-16 h-16 text-danger" />
+                <h2 className="text-2xl font-bold text-danger">Analysis Failed</h2>
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-4 font-mono text-sm text-left w-full break-all">
+                    {errorMsg}
+                </div>
+            </div>
+        );
+    }
 
     if (analyzing) {
         return (
