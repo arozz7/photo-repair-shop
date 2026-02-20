@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from strategies.preview_extraction import PreviewExtractionStrategy
 from strategies.header_grafting import HeaderGraftingStrategy
+from strategies.marker_sanitization import MarkerSanitizationStrategy
 
 def send_progress(job_id: str, percent: int, stage: str, status: str = "running", error_message: str = None, repaired_path: str = None):
     # Sends a JSON message back to the Node backend via stdout
@@ -40,7 +41,8 @@ def main():
     try:
         strategies = {
             "preview-extraction": PreviewExtractionStrategy(),
-            "header-grafting": HeaderGraftingStrategy()
+            "header-grafting": HeaderGraftingStrategy(),
+            "marker-sanitization": MarkerSanitizationStrategy()
         }
         
         strategy = strategies.get(args.strategy)

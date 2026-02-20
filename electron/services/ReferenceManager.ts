@@ -1,5 +1,6 @@
-import { ExifMetadata, ExifToolService } from '../lib/exiftool/ExifToolService';
+import { ExifMetadata, ExifToolService } from '../lib/exiftool/ExifToolService.js';
 import Database from 'better-sqlite3';
+import fs from 'fs';
 
 export interface ReferenceFile {
     id: number;
@@ -107,6 +108,31 @@ export class ReferenceManager {
             meta.resolution || null,
             format
         );
+    }
+
+    async scanReferenceFolder(folderPath: string): Promise<number> {
+        let addedCount = 0;
+        if (!fs.existsSync(folderPath)) return 0;
+
+        try {
+            const files = fs.readdirSync(folderPath);
+            for (const file of files) {
+                const ext = file.toLowerCase();
+                if (ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.jfif') ||
+                    ext.endsWith('.cr2') || ext.endsWith('.nef') || ext.endsWith('.arw')) {
+                    const fullPath = require('path').join(folderPath, file);
+                    try {
+                        await this.addToLibrary(fullPath);
+                        addedCount++;
+                    } catch (e) {
+                        console.warn(`[ReferenceManager] Failed to add ${fullPath} during scan:`, e);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error(`[ReferenceManager] Error scanning reference folder:`, err);
+        }
+        return addedCount;
     }
 
     findInLibrary(targetMetadata: ExifMetadata): ReferenceFile[] {

@@ -23,17 +23,23 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ config, onComplete
 
             if (status.stage) {
                 setLogStream(prev => {
-                    const maxLogs = 10;
+                    const maxLogs = 50;
                     const updated = [...prev, `> ${status.stage}`];
                     return updated.slice(-maxLogs);
                 });
             }
 
+            if (status.error_message) {
+                setLogStream(prev => {
+                    const maxLogs = 50;
+                    const lines = status.error_message.split('\n').filter((l: string) => l.trim().length > 0);
+                    const formatted = lines.map((l: string) => `[STDERR] ${l}`);
+                    return [...prev, ...formatted].slice(-maxLogs);
+                });
+            }
+
             if (status.status === 'done' || status.status === 'failed') {
-                if (status.status === 'failed' && status.error_message) {
-                    setLogStream(prev => [...prev, `[ERROR] ${status.error_message}`]);
-                }
-                setTimeout(() => onComplete(status.job_id), 1000);
+                setTimeout(() => onComplete(status.job_id), status.status === 'failed' ? 3000 : 1000);
             }
         });
 
@@ -84,11 +90,10 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ config, onComplete
                 <p className="mt-3 text-text-muted text-sm font-medium">{Math.min(100, Math.round(progress))}% Completed</p>
             </div>
 
-            <div className="bg-surface/50 border border-surface-hover rounded-xl p-4 w-full text-left text-xs font-mono text-text-muted/80 h-32 overflow-hidden relative">
-                <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent z-10" />
-                <div className="space-y-1 transform animate-slide-up text-left">
+            <div className="bg-surface/50 border border-surface-hover rounded-xl p-4 w-full text-left text-xs font-mono text-text-muted/80 h-48 overflow-y-auto flex flex-col">
+                <div className="space-y-1 mt-auto">
                     {logStream.map((log, idx) => (
-                        <p key={idx} className={log.includes('[ERROR]') ? 'text-danger' : (log.includes('verified') ? 'text-success' : '')}>
+                        <p key={idx} className={log.includes('[STDERR]') || log.includes('[ERROR]') ? 'text-danger break-words' : (log.includes('verified') ? 'text-success' : '')}>
                             {log}
                         </p>
                     ))}

@@ -66,4 +66,19 @@ describe('FileAnalyzer', () => {
         const strategies = result.suggestedStrategies.map(s => s.strategy);
         expect(strategies).toContain('marker-sanitization');
     });
+
+    it('should detect hollow files when size is too small for resolution', async () => {
+        vi.mocked(fs.statSync).mockReturnValue({ size: 30 * 1024 } as any); // 30KB
+        vi.mocked(ExifToolService.getMetadata).mockResolvedValue({ resolution: '4000x3000' }); // 12 MP
+
+        const result = await FileAnalyzer.analyze('job4', 'hollow.jpg');
+
+        expect(result.isCorrupted).toBe(true);
+        expect(result.corruptionTypes).toContain('hollow_header');
+
+        const strategy = result.suggestedStrategies.find(s => s.strategy === 'header-grafting');
+        expect(strategy).toBeDefined();
+        expect(strategy?.confidence).toBe('high');
+        expect(strategy?.reason).toContain('Hollow File detected');
+    });
 });

@@ -14,7 +14,7 @@ export const ResultStep: React.FC<ResultStepProps> = ({ jobId, onRestart }) => {
         setSaving(true);
         try {
             // @ts-ignore
-            const savePath = await window.electronAPI.saveOutput(jobId, 'repaired_photo.jpg');
+            const savePath = await window.electronAPI.saveOutput(jobId);
             if (savePath) {
                 console.log('Successfully saved to:', savePath);
                 // Optionally show a toaster/alert here
