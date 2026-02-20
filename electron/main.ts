@@ -8,7 +8,8 @@ import { RepairRepository } from './db/RepairRepository.js';
 import { JobQueue } from './services/JobQueue.js';
 import { PythonEngineService } from './services/PythonEngineService.js';
 import { ReferenceManager } from './services/ReferenceManager.js';
-
+import { generateAndPersistToken } from './api/auth.js';
+import { createServer } from './api/server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -104,6 +105,16 @@ const jobQueue = new JobQueue(repository, async (jobId: string) => {
 });
 
 app.whenReady().then(() => {
+    // 1. Core API Backend Initialization
+    const token = generateAndPersistToken();
+    const apiApp = createServer(token, { jobQueue, repository, refManager });
+
+    apiApp.listen(3847, '127.0.0.1', () => {
+        console.log(`[API] Server started on http://127.0.0.1:3847`);
+        console.log(`[API] Auth token persisted. Ready for SPO connection.`);
+    });
+
+    // 2. Window UI Initialization
     mainWindow = createWindow();
 
     ipcMain.handle('dialog:openFile', async () => {

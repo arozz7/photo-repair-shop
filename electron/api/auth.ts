@@ -1,7 +1,7 @@
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
+import { randomUUID } from 'crypto';
 import os from 'os';
+import path from 'path';
+import fs from 'fs';
 import { RequestHandler } from 'express';
 
 export function getTokenPath(): string {
@@ -9,14 +9,15 @@ export function getTokenPath(): string {
 }
 
 export function generateAndPersistToken(): string {
-    const token = crypto.randomUUID();
+    const token = randomUUID();
     const tokenPath = getTokenPath();
 
-    if (!fs.existsSync(path.dirname(tokenPath))) {
-        fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
-    }
+    // Ensure the directory exists
+    fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
 
+    // Write token with owner read-only mode for security
     fs.writeFileSync(tokenPath, token, { mode: 0o600 });
+
     return token;
 }
 

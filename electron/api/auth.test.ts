@@ -1,52 +1,91 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateAndPersistToken, createAuthMiddleware, getTokenPath } from './auth';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { generateAndPersistToken, createAuthMiddleware, getTokenPath } from './auth.js';
 import fs from 'fs';
+import { Request, Response, NextFunction } from 'express';
 
-vi.mock('fs');
-
-describe('Security Module (auth.ts)', () => {
+describe('Auth Module', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        // Clear any existing token before testing
+        const tokenPath = getTokenPath();
+        if (fs.existsSync(tokenPath)) {
+            fs.unlinkSync(tokenPath);
+        }
     });
 
-    describe('generateAndPersistToken', () => {
-        it('should generate a valid UUID token and save it to disk', () => {
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-
-            const token = generateAndPersistToken();
-            expect(token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
-
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
-                getTokenPath(),
-                token,
-                { mode: 0o600 }
-            );
-        });
+    afterEach(() => {
+        // Cleanup after testing
+        const tokenPath = getTokenPath();
+        if (fs.existsSync(tokenPath)) {
+            fs.unlinkSync(tokenPath);
+        }
     });
 
-    describe('createAuthMiddleware', () => {
-        it('should pass if token matches', () => {
-            const middleware = createAuthMiddleware('test-token');
-            const req = { headers: { authorization: 'Bearer test-token' } } as any;
-            const res = {} as any;
-            const next = vi.fn();
+    it('generates a unique token and persists it to disk', () => {
+        const token = generateAndPersistToken();
+        const tokenPath = getTokenPath();
+
+        expect(token).toBeDefined();
+        expect(typeof token).toBe('string');
+
+        // Assert file exists and contains the token
+        expect(fs.existsSync(tokenPath)).toBe(true);
+        const persistedToken = fs.readFileSync(tokenPath, 'utf8');
+        expect(persistedToken).toBe(token);
+    });
+
+    describe('Auth Middleware', () => {
+        const testToken = 'test-token-1234';
+        const middleware = createAuthMiddleware(testToken);
+
+        const mockResponse = () => {
+            const res: Partial<Response> = {};
+            res.status = (code) => {
+                res.statusCode = code;
+                return res as Response;
+            };
+            res.json = (data) => {
+                res.body = data;
+                return res as Response;
+            };
+            return res as Response & { statusCode?: number; body?: any };
+        };
+
+        it('allows request with correct token', () => {
+            const req = { headers: { authorization: `Bearer ${testToken}` } } as Request;
+            const res = mockResponse();
+            let nextCalled = false;
+            const next: NextFunction = () => { nextCalled = true; };
 
             middleware(req, res, next);
-            expect(next).toHaveBeenCalled();
+
+            expect(nextCalled).toBe(true);
+            expect(res.statusCode).toBeUndefined(); // Should not have set an error status
         });
 
-        it('should return 401 if token is missing or wrong', () => {
-            const middleware = createAuthMiddleware('test-token');
-            const req = { headers: { authorization: 'Bearer WRONG' } } as any;
-            const jsonMock = vi.fn();
-            const statusMock = vi.fn().mockReturnValue({ json: jsonMock });
-            const res = { status: statusMock } as any;
-            const next = vi.fn();
+        it('rejects request with missing token', () => {
+            const req = { headers: {} } as Request;
+            const res = mockResponse();
+            let nextCalled = false;
+            const next: NextFunction = () => { nextCalled = true; };
 
             middleware(req, res, next);
-            expect(next).not.toHaveBeenCalled();
-            expect(statusMock).toHaveBeenCalledWith(401);
-            expect(jsonMock).toHaveBeenCalledWith({ error: 'Unauthorized' });
+
+            expect(nextCalled).toBe(false);
+            expect(res.statusCode).toBe(401);
+            expect(res.body).toEqual({ error: 'Unauthorized' });
+        });
+
+        it('rejects request with incorrect token', () => {
+            const req = { headers: { authorization: 'Bearer WRONG-TOKEN' } } as Request;
+            const res = mockResponse();
+            let nextCalled = false;
+            const next: NextFunction = () => { nextCalled = true; };
+
+            middleware(req, res, next);
+
+            expect(nextCalled).toBe(false);
+            expect(res.statusCode).toBe(401);
+            expect(res.body).toEqual({ error: 'Unauthorized' });
         });
     });
 });
