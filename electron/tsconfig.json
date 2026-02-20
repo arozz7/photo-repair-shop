@@ -1,13 +1,17 @@
 {
     "compilerOptions": {
         "target": "ESNext",
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "allowSyntheticDefaultImports": true,
         "outDir": "../dist-electron",
         "rootDir": ".",
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
+        "types": [
+            "node"
+        ],
         "forceConsistentCasingInFileNames": true
     },
     "include": [

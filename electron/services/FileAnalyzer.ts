@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { parseJpegMarkers } from '../lib/jpeg/parser.js';
 import { analyzeEntropyMap } from '../lib/jpeg/entropy.js';
-import { ExifToolService, ExifMetadata } from '../lib/exiftool/ExifToolService.js';
+import { ExifToolService, type ExifMetadata } from '../lib/exiftool/ExifToolService.js';
 
 export type CorruptionType =
     | 'missing_soi'

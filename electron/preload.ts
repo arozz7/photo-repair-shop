@@ -9,6 +9,8 @@ export interface ElectronAPI {
     onRepairProgress: (callback: (progress: JobStatus) => void) => () => void;
     saveOutput: (jobId: string, defaultPath?: string) => Promise<string | null>;
     referenceAutoSearch: (targetFilePath: string) => Promise<string | null>;
+    readBase64: (filePath: string) => Promise<string | null>;
+    getJob: (jobId: string) => Promise<any>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -21,7 +23,9 @@ const electronAPI: ElectronAPI = {
         return () => ipcRenderer.off('repair:progress', subscription);
     },
     saveOutput: (jobId: string, defaultPath?: string) => ipcRenderer.invoke('dialog:saveFile', jobId, defaultPath),
-    referenceAutoSearch: (targetFilePath: string) => ipcRenderer.invoke('reference:autoSearch', targetFilePath)
+    referenceAutoSearch: (targetFilePath: string) => ipcRenderer.invoke('reference:autoSearch', targetFilePath),
+    readBase64: (filePath: string) => ipcRenderer.invoke('file:readBase64', filePath),
+    getJob: (jobId: string) => ipcRenderer.invoke('job:get', jobId)
 };
 
 console.log("HELLO FROM PRELOAD SCRIPT! INJECTING ELECTRON API...");

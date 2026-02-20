@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -14,9 +14,17 @@ import { createServer } from './api/server.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function createWindow() {
+    Menu.setApplicationMenu(null);
+
+    const iconPath = process.env.VITE_DEV_SERVER_URL
+        ? path.join(__dirname, '../public/icon.png')
+        : path.join(__dirname, '../dist/icon.png');
+
     const win = new BrowserWindow({
+        title: 'Photo Repair Shop',
         width: 1200,
         height: 800,
+        icon: iconPath,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -208,6 +216,23 @@ app.whenReady().then(() => {
             console.error(`[IPC] Reference auto-search failed:`, e);
             return null;
         }
+    });
+
+    ipcMain.handle('file:readBase64', async (_event, filePath: string) => {
+        try {
+            if (!filePath || !fs.existsSync(filePath)) return null;
+            const data = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg';
+            return `data:${mimeType};base64,${data.toString('base64')}`;
+        } catch (e) {
+            console.error(`[IPC] Failed to read base64 file for preview: ${filePath}`, e);
+            return null;
+        }
+    });
+
+    ipcMain.handle('job:get', async (_event, jobId: string) => {
+        return repository.getJob(jobId);
     });
 
     app.on('activate', () => {
