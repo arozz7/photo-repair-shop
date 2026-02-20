@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--file-path", required=True, help="Path to the corrupted file")
     parser.add_argument("--strategy", required=True, help="Repair strategy name")
     parser.add_argument("--reference-path", required=False, help="Path to the reference file (if required by strategy)")
+    parser.add_argument("--output-dir", required=False, help="Directory to save the output file")
 
     args = parser.parse_args()
 
@@ -51,7 +52,7 @@ def main():
             raise ValueError(f"Unknown strategy requested: {args.strategy}")
 
         # Compute a default output path
-        directory = os.path.dirname(args.file_path)
+        directory = args.output_dir if args.output_dir else os.path.dirname(args.file_path)
         filename = os.path.basename(args.file_path)
         name, ext = os.path.splitext(filename)
         output_path = os.path.join(directory, f"{name}_repaired.jpg")

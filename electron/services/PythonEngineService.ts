@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import os from 'os';
 
 export interface EngineConfig {
     jobId: string;
@@ -42,7 +43,8 @@ export class PythonEngineService implements IRepairEngine {
                 this.engineScript,
                 '--job-id', config.jobId,
                 '--file-path', config.filePath,
-                '--strategy', config.strategy
+                '--strategy', config.strategy,
+                '--output-dir', os.tmpdir()
             ];
 
             if (config.referencePath) {

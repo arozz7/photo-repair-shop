@@ -46,3 +46,30 @@ test('PythonEngineService parses JSON stdout correctly', async () => {
     expect(spawn).toHaveBeenCalled();
     expect(onProgress).toHaveBeenCalledWith(expectedEvent);
 });
+
+import os from 'os';
+
+test('PythonEngineService passes temporary directory as output-dir', async () => {
+    const service = new PythonEngineService(process.cwd());
+
+    const mockProc = new EventEmitter() as any;
+    mockProc.stdout = new EventEmitter();
+    mockProc.stderr = new EventEmitter();
+
+    vi.mocked(spawn).mockReturnValue(mockProc);
+
+    const executePromise = service.executeRepair({
+        jobId: 'job-temp-1',
+        filePath: 'test-2.jpg',
+        strategy: 'marker-sanitization'
+    }, vi.fn());
+
+    mockProc.emit('close', 0);
+    await executePromise;
+
+    // Check that spawn was called with our new --output-dir argument set to os.tmpdir()
+    expect(spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['--output-dir', os.tmpdir()])
+    );
+});
