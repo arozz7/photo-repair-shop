@@ -44,7 +44,7 @@ describe('Auth Module', () => {
                 return res as Response;
             };
             res.json = (data) => {
-                res.body = data;
+                (res as any).body = data;
                 return res as Response;
             };
             return res as Response & { statusCode?: number; body?: any };
