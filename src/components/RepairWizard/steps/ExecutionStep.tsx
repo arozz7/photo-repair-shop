@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 interface ExecutionStepProps {
     config: any;
-    onComplete: () => void;
+    onComplete: (jobId: string) => void;
 }
 
 export const ExecutionStep: React.FC<ExecutionStepProps> = ({ config, onComplete }) => {
@@ -33,7 +33,7 @@ export const ExecutionStep: React.FC<ExecutionStepProps> = ({ config, onComplete
                 if (status.status === 'failed' && status.error_message) {
                     setLogStream(prev => [...prev, `[ERROR] ${status.error_message}`]);
                 }
-                setTimeout(onComplete, 1000);
+                setTimeout(() => onComplete(status.job_id), 1000);
             }
         });
 

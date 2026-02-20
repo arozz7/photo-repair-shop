@@ -6,6 +6,7 @@ export interface JobStatus {
     source_photo_id: number | null;
     source_app: string;
     original_path: string;
+    reference_path: string | null;
     repaired_path: string | null;
     strategy: string;
     status: 'queued' | 'analyzing' | 'repairing' | 'verifying' | 'done' | 'failed';
@@ -26,6 +27,7 @@ export interface CreateJobInput {
     job_id: string;
     original_path: string;
     strategy: string;
+    reference_path?: string;
     source_photo_id?: number;
     source_app?: string;
     auto_enhance?: boolean;
@@ -37,8 +39,8 @@ export class RepairRepository {
     createJob(job: CreateJobInput): RepairOperation {
         const stmt = this.db.prepare(`
       INSERT INTO repair_operations (
-        job_id, source_photo_id, source_app, original_path, strategy, auto_enhance
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        job_id, source_photo_id, source_app, original_path, reference_path, strategy, auto_enhance
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
         stmt.run(
@@ -46,6 +48,7 @@ export class RepairRepository {
             job.source_photo_id ?? null,
             job.source_app ?? 'manual',
             job.original_path,
+            job.reference_path ?? null,
             job.strategy,
             job.auto_enhance ? 1 : 0
         );

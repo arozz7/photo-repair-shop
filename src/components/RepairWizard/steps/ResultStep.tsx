@@ -3,17 +3,18 @@ import { CheckCircle2, Download, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ResultStepProps {
+    jobId: string;
     onRestart: () => void;
 }
 
-export const ResultStep: React.FC<ResultStepProps> = ({ onRestart }) => {
+export const ResultStep: React.FC<ResultStepProps> = ({ jobId, onRestart }) => {
     const [saving, setSaving] = React.useState(false);
 
     const handleSave = async () => {
         setSaving(true);
         try {
             // @ts-ignore
-            const savePath = await window.electronAPI.saveOutput('repaired_photo.jpg');
+            const savePath = await window.electronAPI.saveOutput(jobId, 'repaired_photo.jpg');
             if (savePath) {
                 console.log('Successfully saved to:', savePath);
                 // Optionally show a toaster/alert here

@@ -7,7 +7,7 @@ export interface ElectronAPI {
     analyzeFile: (filePath: string) => Promise<AnalysisResult>;
     executeRepair: (config: any) => Promise<string>;
     onRepairProgress: (callback: (progress: JobStatus) => void) => () => void;
-    saveOutput: (defaultPath?: string) => Promise<string | null>;
+    saveOutput: (jobId: string, defaultPath?: string) => Promise<string | null>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -19,7 +19,7 @@ const electronAPI: ElectronAPI = {
         ipcRenderer.on('repair:progress', subscription);
         return () => ipcRenderer.off('repair:progress', subscription);
     },
-    saveOutput: (defaultPath?: string) => ipcRenderer.invoke('dialog:saveFile', defaultPath)
+    saveOutput: (jobId: string, defaultPath?: string) => ipcRenderer.invoke('dialog:saveFile', jobId, defaultPath)
 };
 
 console.log("HELLO FROM PRELOAD SCRIPT! INJECTING ELECTRON API...");

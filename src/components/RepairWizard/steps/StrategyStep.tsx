@@ -11,12 +11,20 @@ interface StrategyStepProps {
 export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute }) => {
     const [selectedStrategy, setSelectedStrategy] = useState<string>(analysis.suggestedStrategies[0]?.strategy || 'header-grafting');
     const [useReference, setUseReference] = useState(true);
+    const [referencePath, setReferencePath] = useState<string>('');
 
     const handleStart = () => {
         onExecute({
             strategy: selectedStrategy,
-            useReference
+            useReference,
+            referencePath
         });
+    };
+
+    const handleSelectDonor = async () => {
+        // @ts-ignore
+        const path = await window.electronAPI.showOpenDialog();
+        if (path) setReferencePath(path);
     };
 
     const getStrategyIcon = (name: string) => {
@@ -49,8 +57,8 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
                             key={s.strategy}
                             onClick={() => setSelectedStrategy(s.strategy)}
                             className={`flex items-start gap-4 p-6 rounded-xl border-2 text-left transition-all ${selectedStrategy === s.strategy
-                                    ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
-                                    : 'border-surface-hover bg-surface hover:border-text-muted'
+                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                : 'border-surface-hover bg-surface hover:border-text-muted'
                                 }`}
                         >
                             <div className={`mt-1 ${selectedStrategy === s.strategy ? 'text-primary' : 'text-text-muted'}`}>
@@ -75,6 +83,25 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
             {selectedStrategy === 'header-grafting' && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-10 p-6 bg-surface rounded-xl border border-surface-hover">
                     <h3 className="text-lg font-medium mb-4">Donor Configuration</h3>
+
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-text-muted mb-2">Select Valid Donor File</label>
+                        <div className="flex gap-3">
+                            <input
+                                type="text"
+                                readOnly
+                                value={referencePath}
+                                placeholder="Select a healthy JPEG with matching dimensions..."
+                                className="flex-1 bg-background border border-surface-hover rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary"
+                            />
+                            <button
+                                onClick={handleSelectDonor}
+                                className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors border border-primary/20">
+                                Browse
+                            </button>
+                        </div>
+                    </div>
+
                     <label className="flex items-center gap-3 cursor-pointer group">
                         <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${useReference ? 'bg-primary border-primary' : 'border-text-muted group-hover:border-primary'}`}>
                             {useReference && <CheckCircle2 className="w-4 h-4 text-white" />}
@@ -91,7 +118,8 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
             <div className="flex justify-end pt-6 border-t border-surface-hover">
                 <button
                     onClick={handleStart}
-                    className="px-8 py-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg active:scale-95 flex items-center gap-2">
+                    disabled={selectedStrategy === 'header-grafting' && !referencePath}
+                    className="disabled:opacity-50 disabled:cursor-not-allowed px-8 py-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg active:scale-95 flex items-center gap-2">
                     <Zap className="w-5 h-5" /> Execute Repair
                 </button>
             </div>

@@ -6,6 +6,7 @@ import { FileAnalyzer } from './services/FileAnalyzer.js';
 import { initializeDatabase } from './db/database.js';
 import { RepairRepository } from './db/RepairRepository.js';
 import { JobQueue } from './services/JobQueue.js';
+import { PythonEngineService } from './services/PythonEngineService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,25 +38,66 @@ const dbPath = path.join(dbDir, 'repairs.sqlite');
 
 const db = initializeDatabase(dbPath);
 const repository = new RepairRepository(db);
+const engineService = new PythonEngineService(path.join(__dirname, '..'));
 
 const jobQueue = new JobQueue(repository, async (jobId: string) => {
-    // Mock handler for now; we'll plug the real Engine in later.
+    const job = repository.getJob(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found`);
+
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
     }
 
-    await new Promise(r => setTimeout(r, 1000));
-    repository.updateJob(jobId, { percent: 25, stage: 'Parsing headers...' });
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
+    try {
+        await engineService.executeRepair(
+            {
+                jobId: job.job_id,
+                filePath: job.original_path,
+                strategy: job.strategy || 'unknown',
+                referencePath: job.reference_path || undefined
+            },
+            (progress) => {
+                const updatePayload: any = {
+                    percent: progress.percent,
+                    stage: progress.stage,
+                    status: progress.status as any,
+                    error_message: progress.error_message
+                };
+                if (progress.status === 'done' && progress.repaired_path) {
+                    updatePayload.repaired_path = progress.repaired_path;
+                }
+                repository.updateJob(jobId, updatePayload);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
+                }
+            }
+        );
+    } catch (err: any) {
+        console.error(`[JobQueue Handler] Error in executeRepair for job ${jobId}:`, err);
+        repository.updateJob(jobId, {
+            status: 'failed',
+            error_message: err.message || 'Unknown execution error',
+            completed_at: new Date().toISOString()
+        });
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
+        }
+        throw err;
+    }
 
-    await new Promise(r => setTimeout(r, 1000));
-    repository.updateJob(jobId, { percent: 75, stage: 'Applying strategy...' });
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
-
-    await new Promise(r => setTimeout(r, 1000));
-    repository.updateJob(jobId, { percent: 100, stage: 'Complete.', status: 'done', completed_at: new Date().toISOString() });
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
-
+    // Finalize the job status just in case the engine script misses the 100% emission
+    const finalState = repository.getJob(jobId);
+    if (finalState && finalState.status !== 'done' && finalState.status !== 'failed') {
+        repository.updateJob(jobId, {
+            percent: 100,
+            stage: 'Complete.',
+            status: 'done',
+            completed_at: new Date().toISOString()
+        });
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('repair:progress', repository.getJob(jobId));
+        }
+    }
 });
 
 app.whenReady().then(() => {
@@ -82,8 +124,15 @@ app.whenReady().then(() => {
         }
     });
 
-    ipcMain.handle('dialog:saveFile', async (_event, defaultPath?: string) => {
+    ipcMain.handle('dialog:saveFile', async (_event, jobId: string, defaultPath?: string) => {
         if (!mainWindow) return null;
+
+        const job = repository.getJob(jobId);
+        if (!job || !job.repaired_path) {
+            console.error(`[IPC] Cannot save output: Job ${jobId} not found or has no repaired_path.`);
+            return null;
+        }
+
         const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
             defaultPath: defaultPath || 'repaired-photo.jpg',
             filters: [
@@ -94,8 +143,14 @@ app.whenReady().then(() => {
 
         if (canceled || !filePath) return null;
 
-        // MOCK: Write an empty file to satisfy the OS and demo the interaction loop
-        fs.writeFileSync(filePath, Buffer.from([]));
+        try {
+            // Copy the hidden reconstructed file to the user's permanent destination
+            fs.copyFileSync(job.repaired_path, filePath);
+            console.log(`[IPC] Successfully copied repaired output to ${filePath}`);
+        } catch (e) {
+            console.error(`[IPC] Error copying repaired file:`, e);
+            throw e;
+        }
 
         return filePath;
     });
@@ -105,6 +160,7 @@ app.whenReady().then(() => {
         repository.createJob({
             job_id: jobId,
             original_path: config.filePath || 'unknown',
+            reference_path: config.referencePath,
             strategy: config.strategy
         });
         jobQueue.enqueue(jobId);
