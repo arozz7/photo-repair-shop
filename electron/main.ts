@@ -10,6 +10,7 @@ import { PythonEngineService } from './services/PythonEngineService.js';
 import { ReferenceManager } from './services/ReferenceManager.js';
 import { generateAndPersistToken } from './api/auth.js';
 import { createServer } from './api/server.js';
+import { SettingsService } from './services/SettingsService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -233,6 +234,20 @@ app.whenReady().then(() => {
 
     ipcMain.handle('job:get', async (_event, jobId: string) => {
         return repository.getJob(jobId);
+    });
+
+    ipcMain.handle('history:getAll', async () => {
+        return repository.getAllJobs();
+    });
+
+    const settingsService = new SettingsService(app.getPath('userData'));
+
+    ipcMain.handle('settings:get', async () => {
+        return settingsService.getSettings();
+    });
+
+    ipcMain.handle('settings:update', async (_event, partial: any) => {
+        return settingsService.updateSettings(partial);
     });
 
     app.on('activate', () => {

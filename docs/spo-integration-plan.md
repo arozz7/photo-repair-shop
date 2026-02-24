@@ -162,9 +162,20 @@ export async function ensurePrsRunning(): Promise<boolean> {
   // 4. Return true if responsive, false if timeout
 }
 
-// Path discovery: check common install locations
-// Windows: %LOCALAPPDATA%\Programs\photo-repair-shop\photo-repair-shop.exe
-// Fallback: prompt user to open PRS manually
+// Path discovery: PRS ships two Windows executables — SPO must handle both:
+//
+// 1. NSIS Installer (standard): installs to per-user AppData
+//    %LOCALAPPDATA%\Programs\Photo Repair Shop\Photo Repair Shop.exe
+//
+// 2. Portable (no install): single .exe the user places anywhere
+//    Photo Repair Shop-Windows-{version}-Portable.exe
+//    — this was used during integration testing; path is user-configured
+//
+// Resolution strategy:
+//   a. Check SPO Settings for a user-configured PRS path (covers portable case)
+//   b. If not set, probe the default NSIS install path
+//   c. If neither found, prompt user to locate the exe manually (browse button)
+//      and persist to SPO config so the check doesn't repeat every launch
 ```
 
 #### [NEW] `electron/lib/prs/PrsLauncher.test.ts`
@@ -478,8 +489,13 @@ prs:completeRepair({ scanErrorId, originalPhotoId, repairedFilePath })
    - Recommendation: Delete from DB (but never from disk — that's SPO's existing behaviour)
 
 3. **PRS executable path:** How does SPO know where PRS is installed?
-   - Recommendation: SPO Settings page — "Photo Repair Shop location" field (browse button)
-   - Persisted to SPO's `config.json` via `ConfigService`
+   - **Resolved:** PRS ships two exe types — NSIS installer and Portable.
+   - The Portable exe (`*-Portable.exe`) was used during integration testing and has no fixed path.
+   - The NSIS installer deploys to `%LOCALAPPDATA%\Programs\Photo Repair Shop\Photo Repair Shop.exe`.
+   - SPO should probe the NSIS default path first, then fall back to a user-configured path.
+   - SPO Settings page must include a "Photo Repair Shop location" field (browse button).
+   - Persisted to SPO's `config.json` via `ConfigService`.
+   - See `PrsLauncher.ts` for the full resolution strategy.
 
 4. **UI placement:** ScanWarnings modal is the right entry point for v1, but should repair also
    be accessible from the photo Lightbox? (e.g. right-click → "Repair with PRS")

@@ -91,4 +91,13 @@ export class RepairRepository {
             auto_enhance: row.auto_enhance === 1
         }));
     }
+
+    getAllJobs(): RepairOperation[] {
+        const stmt = this.db.prepare(`SELECT * FROM repair_operations ORDER BY created_at DESC`);
+        return stmt.all().map((row: any) => ({
+            ...row,
+            is_verified: row.is_verified === 1,
+            auto_enhance: row.auto_enhance === 1
+        }));
+    }
 }

@@ -5,6 +5,10 @@ import { AnalysisStep } from './components/RepairWizard/steps/AnalysisStep';
 import { StrategyStep } from './components/RepairWizard/steps/StrategyStep';
 import { ExecutionStep } from './components/RepairWizard/steps/ExecutionStep';
 import { ResultStep } from './components/RepairWizard/steps/ResultStep';
+import { Sidebar } from './components/Sidebar';
+import type { AppView } from './components/Sidebar';
+import { History } from './components/History/History';
+import { Settings } from './components/Settings/Settings';
 import type { AnalysisResult } from '../electron/services/FileAnalyzer';
 
 const STEPS = [
@@ -16,6 +20,9 @@ const STEPS = [
 ];
 
 function App() {
+  const [currentView, setCurrentView] = useState<AppView>('repair');
+
+  // Repair Wizard State
   const [currentStep, setCurrentStep] = useState(0);
   const [targetFile, setTargetFile] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -54,33 +61,24 @@ function App() {
   };
 
   return (
-    <RepairWizard currentStep={currentStep} steps={STEPS}>
-      {/* 0. Import */}
-      <ImportStep onFileSelect={handleFileSelect} />
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 
-      {/* 1. Analysis */}
-      <AnalysisStep
-        filePath={targetFile}
-        onAnalysisComplete={handleAnalysisComplete} />
+      <main className="flex-1 relative flex flex-col">
+        {currentView === 'repair' && (
+          <RepairWizard currentStep={currentStep} steps={STEPS}>
+            <ImportStep onFileSelect={handleFileSelect} />
+            <AnalysisStep filePath={targetFile} onAnalysisComplete={handleAnalysisComplete} />
+            {analysisResult ? <StrategyStep analysis={analysisResult} onExecute={handleExecute} /> : <div />}
+            {strategyConfig ? <ExecutionStep config={strategyConfig} onComplete={handleRepairComplete} /> : <div />}
+            <ResultStep jobId={activeJobId} onRestart={handleRestart} />
+          </RepairWizard>
+        )}
 
-      {/* 2. Strategy Setup */}
-      {analysisResult ? (
-        <StrategyStep
-          analysis={analysisResult}
-          onExecute={handleExecute} />
-      ) : <div />}
-
-      {/* 3. Execution */}
-      {strategyConfig ? (
-        <ExecutionStep
-          config={strategyConfig}
-          onComplete={handleRepairComplete} />
-      ) : <div />}
-
-      {/* 4. Result */}
-      <ResultStep jobId={activeJobId} onRestart={handleRestart} />
-
-    </RepairWizard>
+        {currentView === 'history' && <History />}
+        {currentView === 'settings' && <Settings />}
+      </main>
+    </div>
   );
 }
 

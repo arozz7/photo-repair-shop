@@ -11,6 +11,9 @@ export interface ElectronAPI {
     referenceAutoSearch: (targetFilePath: string) => Promise<string | null>;
     readBase64: (filePath: string) => Promise<string | null>;
     getJob: (jobId: string) => Promise<any>;
+    getHistory: () => Promise<any[]>;
+    getSettings: () => Promise<any>;
+    updateSettings: (partial: any) => Promise<any>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -25,7 +28,10 @@ const electronAPI: ElectronAPI = {
     saveOutput: (jobId: string, defaultPath?: string) => ipcRenderer.invoke('dialog:saveFile', jobId, defaultPath),
     referenceAutoSearch: (targetFilePath: string) => ipcRenderer.invoke('reference:autoSearch', targetFilePath),
     readBase64: (filePath: string) => ipcRenderer.invoke('file:readBase64', filePath),
-    getJob: (jobId: string) => ipcRenderer.invoke('job:get', jobId)
+    getJob: (jobId: string) => ipcRenderer.invoke('job:get', jobId),
+    getHistory: () => ipcRenderer.invoke('history:getAll'),
+    getSettings: () => ipcRenderer.invoke('settings:get'),
+    updateSettings: (partial: any) => ipcRenderer.invoke('settings:update', partial)
 };
 
 console.log("HELLO FROM PRELOAD SCRIPT! INJECTING ELECTRON API...");
