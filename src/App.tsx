@@ -66,7 +66,7 @@ function App() {
 
       <main className="flex-1 relative flex flex-col">
         {currentView === 'repair' && (
-          <RepairWizard currentStep={currentStep} steps={STEPS}>
+          <RepairWizard currentStep={currentStep} steps={STEPS} onRestart={handleRestart}>
             <ImportStep onFileSelect={handleFileSelect} />
             <AnalysisStep filePath={targetFile} onAnalysisComplete={handleAnalysisComplete} />
             {analysisResult ? <StrategyStep analysis={analysisResult} onExecute={handleExecute} /> : <div />}

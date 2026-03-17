@@ -13,6 +13,15 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
     const [useReference, setUseReference] = useState(true);
     const [referencePath, setReferencePath] = useState<string>('');
     const [isSearchingDonor, setIsSearchingDonor] = useState(false);
+    const [genericProfiles, setGenericProfiles] = useState<string[]>([]);
+
+    useEffect(() => {
+        // @ts-ignore
+        if (window.electronAPI.getGenericProfiles) {
+            // @ts-ignore
+            window.electronAPI.getGenericProfiles().then(setGenericProfiles).catch(console.error);
+        }
+    }, []);
 
     useEffect(() => {
         if (selectedStrategy === 'header-grafting' && !referencePath && analysis.filePath) {
@@ -109,30 +118,55 @@ export const StrategyStep: React.FC<StrategyStepProps> = ({ analysis, onExecute 
                                 readOnly
                                 value={referencePath}
                                 placeholder={isSearchingDonor ? "Scanning Reference Library..." : "Select a healthy JPEG with matching dimensions..."}
-                                className="flex-1 bg-background border border-surface-hover rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary"
+                                className="flex-1 bg-background border border-surface-hover rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary text-ellipsis overflow-hidden whitespace-nowrap"
                             />
                             <button
                                 onClick={handleSelectDonor}
                                 disabled={isSearchingDonor}
-                                className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors border border-primary/20 disabled:opacity-50">
+                                className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-sm font-medium transition-colors border border-primary/20 disabled:opacity-50 flex-shrink-0">
                                 Browse
                             </button>
                         </div>
+                        
+                        {genericProfiles.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-surface-hover">
+                                <label className="block text-sm font-medium text-text-muted mb-2">Or Use Built-in Generic Profile (Relaxed Mode)</label>
+                                <select 
+                                    className="w-full bg-background border border-surface-hover rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary"
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            setReferencePath(e.target.value);
+                                            setUseReference(false); // Suggest turning off strict check for generic profiles
+                                        }
+                                    }}
+                                    value={genericProfiles.includes(referencePath) ? referencePath : ""}
+                                >
+                                    <option value="">-- Select a Generic Profile --</option>
+                                    {genericProfiles.map(p => {
+                                        const name = p.split(/[\\/]/).pop()?.replace('-profile.jpg', '').replace('.hdr', '') || p;
+                                        // capitalize first letter and format
+                                        const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+                                        return <option key={p} value={p}>{formattedName}</option>;
+                                    })}
+                                </select>
+                            </div>
+                        )}
+
                         {referencePath && !isSearchingDonor && (
-                            <p className="mt-2 text-xs text-success flex items-center gap-1">
+                            <p className="mt-3 text-xs text-success flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3" /> Donor file loaded and ready.
                             </p>
                         )}
                     </div>
 
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${useReference ? 'bg-primary border-primary' : 'border-text-muted group-hover:border-primary'}`}>
+                    <label className="flex items-center gap-3 cursor-pointer group bg-background p-3 rounded-lg border border-surface-hover">
+                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${useReference ? 'bg-primary border-primary' : 'border-text-muted group-hover:border-primary'}`}>
                             {useReference && <CheckCircle2 className="w-4 h-4 text-white" />}
                         </div>
                         <input type="checkbox" className="hidden" checked={useReference} onChange={(e) => setUseReference(e.target.checked)} />
                         <div>
                             <p className="font-medium">Force strict Exif compatibility check</p>
-                            <p className="text-sm text-text-muted">The Reference Manager will strictly enforce matching Camera Model and Orientation tags before allowing a donor header.</p>
+                            <p className="text-xs text-text-muted mt-0.5">The Reference Manager will strictly enforce matching Camera Model and Orientation. Uncheck this for "Relaxed Mode" to force grafting any JPEG header (may cause color shifts).</p>
                         </div>
                     </label>
                 </motion.div>
