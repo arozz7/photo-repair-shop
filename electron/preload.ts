@@ -14,6 +14,7 @@ export interface ElectronAPI {
     getHistory: () => Promise<any[]>;
     getSettings: () => Promise<any>;
     updateSettings: (partial: any) => Promise<any>;
+    getGenericProfiles: () => Promise<string[]>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -31,7 +32,8 @@ const electronAPI: ElectronAPI = {
     getJob: (jobId: string) => ipcRenderer.invoke('job:get', jobId),
     getHistory: () => ipcRenderer.invoke('history:getAll'),
     getSettings: () => ipcRenderer.invoke('settings:get'),
-    updateSettings: (partial: any) => ipcRenderer.invoke('settings:update', partial)
+    updateSettings: (partial: any) => ipcRenderer.invoke('settings:update', partial),
+    getGenericProfiles: () => ipcRenderer.invoke('profiles:getGeneric')
 };
 
 console.log("HELLO FROM PRELOAD SCRIPT! INJECTING ELECTRON API...");

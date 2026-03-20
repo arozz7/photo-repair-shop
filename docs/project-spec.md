@@ -135,8 +135,9 @@ Photo Repair Shop runs independently but exposes a local API for integration.
 1. Import corrupted file → Auto-analysis
 2. Display diagnosis with recommended strategies
 3. If header grafting needed → Prompt for reference file with matching guidance
-4. Preview repair result (before/after comparison)
-5. Save repaired file to chosen location
+4. Execute repair to a temporary file
+5. Preview repair result (before/after comparison)
+6. Explicitly save repaired file to chosen location
 
 #### Workflow 2: Batch Repair (Ransomware Recovery)
 1. Select folder of corrupted files
@@ -169,6 +170,9 @@ Photo Repair Shop runs independently but exposes a local API for integration.
 
 ### Phase 4: Polish & Integration
 - [ ] Local API server for external integration
+- [ ] Remove default Electron window file menu
+- [ ] Application branding (custom App Icon)
+- [ ] Explicit save workflow (preview repaired file before saving)
 - [ ] Settings/preferences
 - [ ] Repair history/logging
 - [ ] Documentation and user guide

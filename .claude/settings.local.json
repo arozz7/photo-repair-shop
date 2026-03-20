@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(\"/c/Users/arozz/AppData/Local/nvm/v20.17.0/node_modules/npm/bin/npm.cmd\":*)",
+      "Bash(grep:*)",
+      "Bash(cd:*)"
+    ]
+  }
+}

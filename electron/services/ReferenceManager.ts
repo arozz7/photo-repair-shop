@@ -118,8 +118,8 @@ export class ReferenceManager {
             const files = fs.readdirSync(folderPath);
             for (const file of files) {
                 const ext = file.toLowerCase();
-                if (ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.jfif') ||
-                    ext.endsWith('.cr2') || ext.endsWith('.nef') || ext.endsWith('.arw')) {
+                const validExts = ['.jpg', '.jpeg', '.jfif', '.cr2', '.cr3', '.nef', '.arw', '.dng', '.raf', '.rw2', '.orf', '.pef', '.sr2'];
+                if (validExts.some(e => ext.endsWith(e))) {
                     const fullPath = require('path').join(folderPath, file);
                     try {
                         await this.addToLibrary(fullPath);
@@ -147,5 +147,22 @@ export class ReferenceManager {
 
         const stmt = this.db.prepare(sql);
         return stmt.all(targetMetadata.cameraModel, targetMetadata.resolution) as ReferenceFile[];
+    }
+
+    async findBestReference(targetMetadata: ExifMetadata): Promise<RankedReference | null> {
+        // 1. Find candidates in DB that match basic geometry + camera
+        const candidates = this.findInLibrary(targetMetadata);
+        if (candidates.length === 0) return null;
+
+        const candidatePaths = candidates.map(c => c.filePath);
+
+        // 2. Rank candidates based on full metadata match
+        const ranked = await this.rankCandidates(candidatePaths, targetMetadata);
+
+        if (ranked.length > 0) {
+            return ranked[0]; // best score
+        }
+
+        return null;
     }
 }

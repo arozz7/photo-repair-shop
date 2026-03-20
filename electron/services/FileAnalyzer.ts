@@ -1,7 +1,11 @@
 import fs from 'fs';
 import { parseJpegMarkers } from '../lib/jpeg/parser.js';
 import { analyzeEntropyMap } from '../lib/jpeg/entropy.js';
+import { detectMcuMisalignment } from '../lib/jpeg/mcuDetector.js';
 import { ExifToolService, type ExifMetadata } from '../lib/exiftool/ExifToolService.js';
+import { parsePngChunks } from '../lib/png/parser.js';
+import { parseHeicBoxes } from '../lib/heic/parser.js';
+import { parseTiffIfds } from '../lib/tiff/parser.js';
 
 export type CorruptionType =
     | 'missing_soi'
@@ -11,10 +15,17 @@ export type CorruptionType =
     | 'mcu_misalignment'
     | 'metadata_corrupt'
     | 'raw_unreadable'
-    | 'hollow_header';
+    | 'hollow_header'
+    | 'png_missing_ihdr'
+    | 'png_broken_idat'
+    | 'png_crc_mismatch'
+    | 'heic_missing_meta'
+    | 'heic_broken_mdat'
+    | 'tiff_cyclic_ifd'
+    | 'tiff_invalid_offset';
 
 export interface RepairStrategySuggestion {
-    strategy: 'header-grafting' | 'preview-extraction' | 'marker-sanitization';
+    strategy: 'header-grafting' | 'preview-extraction' | 'marker-sanitization' | 'mcu-alignment' | 'png-chunk-rebuilder' | 'heic-box-recovery' | 'tiff-ifd-rebuilder';
     requiresReference: boolean;
     confidence: 'high' | 'medium' | 'low';
     reason: string;
@@ -23,7 +34,7 @@ export interface RepairStrategySuggestion {
 export interface AnalysisResult {
     jobId: string;
     filePath: string;
-    fileType: 'jpeg' | 'cr2' | 'nef' | 'arw' | 'dng' | 'unknown';
+    fileType: 'jpeg' | 'cr2' | 'nef' | 'arw' | 'dng' | 'png' | 'heic' | 'tiff' | 'unknown';
     fileSize: number;
     isCorrupted: boolean;
     corruptionTypes: CorruptionType[];
@@ -41,6 +52,9 @@ export class FileAnalyzer {
         if (ext.endsWith('.nef')) return 'nef';
         if (ext.endsWith('.arw')) return 'arw';
         if (ext.endsWith('.dng')) return 'dng';
+        if (ext.endsWith('.png')) return 'png';
+        if (ext.endsWith('.heic') || ext.endsWith('.heif')) return 'heic';
+        if (ext.endsWith('.tif') || ext.endsWith('.tiff')) return 'tiff';
         return 'unknown';
     }
 
@@ -116,15 +130,154 @@ export class FileAnalyzer {
 
             if (parseResult.bitstreamOffset > 0) {
                 result.entropyMap = analyzeEntropyMap(buffer, parseResult.bitstreamOffset);
+                const mcuCheck = detectMcuMisalignment(buffer, parseResult);
+                if (mcuCheck.likelyMisaligned) {
+                    result.isCorrupted = true;
+                    result.corruptionTypes.push('mcu_misalignment');
+                    result.suggestedStrategies.push({
+                        strategy: 'mcu-alignment',
+                        requiresReference: true,
+                        confidence: mcuCheck.confidence,
+                        reason: mcuCheck.evidence.join(' ')
+                    });
+                }
+            }
+        } else if (fileType === 'png') {
+            const buffer = fs.readFileSync(filePath);
+            const parseResult = parsePngChunks(buffer);
+
+            if (!parseResult.hasValidSignature) {
+                result.isCorrupted = true;
+            }
+
+            if (parseResult.missingIhdr) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('png_missing_ihdr');
+                result.suggestedStrategies.push({
+                    strategy: 'png-chunk-rebuilder',
+                    requiresReference: true,
+                    confidence: 'high',
+                    reason: 'PNG Header (IHDR) is missing. Requires a reference file to graft a healthy header.'
+                });
+            }
+
+            if (parseResult.brokenIdat) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('png_broken_idat');
+                if (!result.suggestedStrategies.some(s => s.strategy === 'png-chunk-rebuilder')) {
+                    result.suggestedStrategies.push({
+                        strategy: 'png-chunk-rebuilder',
+                        requiresReference: false, // IDAT scavenging typically doesn't strictly need a donor unless rebuilding entirely
+                        confidence: 'medium',
+                        reason: 'Image data chunks are corrupt. Rebuilding blocks may recover partial image.'
+                    });
+                }
+            }
+
+            if (parseResult.crcMismatchCount > 0) {
+                result.isCorrupted = true;
+                if (!result.corruptionTypes.includes('png_crc_mismatch')) {
+                    result.corruptionTypes.push('png_crc_mismatch');
+                }
+            }
+        } else if (fileType === 'heic') {
+            // HEIC files can be large; read only the first 2MB which contains all top-level boxes.
+            const MAX_HEADER_READ = 2 * 1024 * 1024;
+            const fd = fs.openSync(filePath, 'r');
+            const header = Buffer.alloc(Math.min(MAX_HEADER_READ, result.fileSize));
+            fs.readSync(fd, header, 0, header.length, 0);
+            fs.closeSync(fd);
+
+            const parseResult = parseHeicBoxes(header);
+
+            if (!parseResult.hasValidFtyp || !parseResult.isHeic) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('heic_missing_meta');
+            }
+
+            if (!parseResult.hasMeta) {
+                result.isCorrupted = true;
+                if (!result.corruptionTypes.includes('heic_missing_meta')) {
+                    result.corruptionTypes.push('heic_missing_meta');
+                }
+            }
+
+            if (!parseResult.hasMdat) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('heic_broken_mdat');
+            }
+
+            if (result.isCorrupted) {
+                result.suggestedStrategies.push({
+                    strategy: 'heic-box-recovery',
+                    requiresReference: true,
+                    confidence: parseResult.hasMdat ? 'high' : 'medium',
+                    reason: parseResult.hasMdat
+                        ? 'HEIC metadata container is damaged. Will transplant your image payload into a reference shell.'
+                        : 'HEIC image payload (mdat) is missing or unreadable. A reference donor from the same device is required.'
+                });
+            }
+        } else if (fileType === 'tiff' || fileType === 'cr2' || fileType === 'nef' || fileType === 'arw' || fileType === 'dng') {
+            // For TIFF-based files (includes most RAW formats), we parse the IFD chain.
+            // Read only the first 1MB which is sufficient to find all IFD directories.
+            const MAX_TIFF_HEADER = 1 * 1024 * 1024;
+            const fd = fs.openSync(filePath, 'r');
+            const header = Buffer.alloc(Math.min(MAX_TIFF_HEADER, result.fileSize));
+            fs.readSync(fd, header, 0, header.length, 0);
+            fs.closeSync(fd);
+
+            const parseResult = parseTiffIfds(header);
+
+            if (!parseResult.hasValidSignature) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('raw_unreadable');
+            }
+
+            if (parseResult.hasInvalidOffsets) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('tiff_invalid_offset');
+            }
+
+            if (parseResult.hasCyclicIfd) {
+                result.isCorrupted = true;
+                result.corruptionTypes.push('tiff_cyclic_ifd');
+            }
+
+            // Always offer preview extraction for RAW as a fast fallback
+            result.embeddedPreviewAvailable = true;
+            result.suggestedStrategies.push({
+                strategy: 'preview-extraction',
+                requiresReference: false,
+                confidence: 'medium',
+                reason: 'Extracts embedded JPEG preview from the RAW container as a fast, donor-free option.'
+            });
+
+            // Offer full IFD rebuild if structure is broken
+            if (result.isCorrupted) {
+                result.suggestedStrategies.push({
+                    strategy: 'tiff-ifd-rebuilder',
+                    requiresReference: true,
+                    confidence: parseResult.hasCyclicIfd ? 'medium' : 'high',
+                    reason: parseResult.hasCyclicIfd
+                        ? 'IFD pointer chain is cyclic. A reference RAW from the same camera will be used to rebuild the directory.'
+                        : 'IFD offset pointers are broken. Transplanting a healthy IFD from a reference file will restore decode-ability.'
+                });
             }
         } else if (fileType !== 'unknown') {
+            result.embeddedPreviewAvailable = true;
             if (result.isCorrupted) {
-                result.embeddedPreviewAvailable = true;
                 result.suggestedStrategies.push({
                     strategy: 'preview-extraction',
                     requiresReference: false,
                     confidence: 'high',
                     reason: 'RAW file is unreadable. Will attempt to extract embedded JPEG preview.'
+                });
+            } else {
+                result.suggestedStrategies.push({
+                    strategy: 'preview-extraction',
+                    requiresReference: false,
+                    confidence: 'medium',
+                    reason: 'RAW structure appears intact. You can manually extract the embedded JPEG preview.'
                 });
             }
         }

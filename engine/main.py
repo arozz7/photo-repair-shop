@@ -9,6 +9,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from strategies.preview_extraction import PreviewExtractionStrategy
 from strategies.header_grafting import HeaderGraftingStrategy
 from strategies.marker_sanitization import MarkerSanitizationStrategy
+from strategies.mcu_alignment import McuAlignmentStrategy
+from strategies.png_chunk_rebuilder import PngChunkRebuilderStrategy
+from strategies.heic_box_recovery import HeicBoxRecoveryStrategy
+from strategies.tiff_ifd_rebuilder import TiffIfdRebuilderStrategy
 
 def send_progress(job_id: str, percent: int, stage: str, status: str = "running", error_message: str = None, repaired_path: str = None):
     # Sends a JSON message back to the Node backend via stdout
@@ -40,22 +44,28 @@ def main():
     send_progress(args.job_id, 5, f"Engine initialized for strategy: {args.strategy}")
 
     try:
-        strategies = {
-            "preview-extraction": PreviewExtractionStrategy(),
-            "header-grafting": HeaderGraftingStrategy(),
-            "marker-sanitization": MarkerSanitizationStrategy()
+        strategies_ext_map = {
+            "preview-extraction": (".jpg", PreviewExtractionStrategy()),
+            "header-grafting": (".jpg", HeaderGraftingStrategy()),
+            "marker-sanitization": (".jpg", MarkerSanitizationStrategy()),
+            "mcu-alignment": (".jpg", McuAlignmentStrategy()),
+            "png-chunk-rebuilder": (".png", PngChunkRebuilderStrategy()),
+            "heic-box-recovery": (".heic", HeicBoxRecoveryStrategy()),
+            "tiff-ifd-rebuilder": (".tiff", TiffIfdRebuilderStrategy())
         }
         
-        strategy = strategies.get(args.strategy)
+        map_entry = strategies_ext_map.get(args.strategy)
         
-        if not strategy:
+        if not map_entry:
             raise ValueError(f"Unknown strategy requested: {args.strategy}")
+
+        ext_to_use, strategy = map_entry
 
         # Compute a default output path
         directory = args.output_dir if args.output_dir else os.path.dirname(args.file_path)
         filename = os.path.basename(args.file_path)
         name, ext = os.path.splitext(filename)
-        output_path = os.path.join(directory, f"{name}_repaired.jpg")
+        output_path = os.path.join(directory, f"{name}_repaired{ext_to_use}")
 
         send_progress(args.job_id, 25, f"Executing {strategy.name} repair logic...", "running")
         
