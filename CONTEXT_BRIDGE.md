@@ -1,24 +1,42 @@
-# Context Bridge: Photo Repair Shop
+# Context Bridge: SPO ↔ PRS Integration (Complete)
 
 ## Current State
-We are building a local-first, modular electron application designed to forensically repair corrupted JPEG imagery using structural heuristics and test-time verification. We have successfully completed Phase 1 (Core Foundation setup with TypeScript, Vite, and absolute strict linting) and Phase 2 (Building the complex Python backend engine including the Header Grafting and Marker Sanitization strategies). We just finished Phase 3, successfully implementing a gorgeous dark-mode Tailwind V4 React frontend that simulates the "Repair Wizard" flow with an interactive Hex Viewer and animated console execution streams.
+The SPO ↔ PRS integration has been fully implemented across all four phases (API client, IPC
+handlers, ReferenceRepository, UI/Config) in `J:/Projects/smart-photo-organizer`. All 36 new
+tests pass (29 backend, 7 frontend). The implementation is code-complete and ready for manual
+QA — no further code changes are required unless bugs are found during testing.
 
 ## Technical Details
-- **Architecture**: Enforced strict separation of concerns (Enterprise Mode). The React frontend is completely disjointed from the core Python repair engine, mandated to communicate exclusively through the Electron IPC `contextBridge`.
-- **Frameworks**: 
-  - Frontend: React 18, Vite, TailwindCSS V4 (using native CSS variables `@theme`), Framer Motion (for UI transitions), Lucide-React (icons).
-  - Backend: Electron (TypeScript API routing), Python 3.12 (core processing, ExifTool, OpenCV, deep structural byte arrays).
-- **Tooling Constraints**: Windows PowerShell is the enforced execution environment. Direct API imports (like OpenAI/Langchain) are forbidden; all externalities must route through internal Provider abstractions (e.g., `PythonAIProvider.ts`).
-- **Testing**: TDD is heavily enforced. Vitest is configured to mock external systems (like the SQLite DB and Python subprocesses) for rapid CI/CD assurance.
-- **Git Strategy**: We are tracking project progression aggressively using the `aiChangeLog` system, generating granular commit messages matching conventional-commits standards.
+- **Node / test runner:** `/c/Users/arozz/AppData/Local/nvm/v22.15.0/node.exe ./node_modules/vitest/vitest.mjs run`
+- **New files (SPO):**
+  - `electron/lib/prs/PrsTokenReader.ts` — reads `~/.photo-repair-shop/api-token`
+  - `electron/lib/prs/PrsClient.ts` — REST client (native fetch, Electron 28+), `PrsApiError`
+  - `electron/lib/prs/PrsLauncher.ts` — `ensurePrsRunning()` via `shell.openPath` + health poll
+  - `electron/ipc/prsHandlers.ts` — 5 channels: `prs:checkAvailability`, `prs:analyzeFile`, `prs:pollStatus`, `prs:submitRepair`, `prs:completeRepair`
+  - `electron/data/repositories/ReferenceRepository.ts` — healthy-photo lookup by camera model + resolution
+  - `src/types/prs.ts` — `RepairStatus`, `RepairState`, `PrsJobResult` types
+  - `src/hooks/useRepairJob.ts` — 2s polling hook, calls `onDone`/`onError` on terminal states
+- **Modified files (SPO):**
+  - `electron/main.ts` — added `registerPrsHandlers()` call in `app.whenReady()`
+  - `electron/db.ts` — added `is_unrepairable BOOLEAN DEFAULT 0` migration to `scan_errors`
+  - `electron/data/repositories/PhotoRepository.ts` — added `deletePhotoById`, `markUnrepairable`
+  - `electron/core/services/ConfigService.ts` — added `prsExecutablePath?: string` to `AppConfig`
+  - `electron/ipc/settingsHandlers.ts` — added `settings:get` and `settings:update` channels (were missing)
+  - `electron/ipc/fileHandlers.ts` — added `dialog:openFile` channel (was missing)
+  - `src/components/ScanWarningsModal.tsx` — full repair UI: per-row `RepairState` map, repair flow, progress bar, unrepairable badge
+  - `src/views/Settings.tsx` — added "Integrations" section with PRS path + Browse button
+- **Pre-existing test failures:** 13 failing test files in full SPO suite (FaceRepository, Scanner, SmartIgnorePanel) — **unrelated to PRS work**, were failing before this implementation
+- **Vitest 4 gotcha:** Constructor mocking under `vi.useFakeTimers()` requires `vi.hoisted()` + a real `class` mock (arrow function mocks are not newable)
+- **Path separator:** Windows `path.join` uses `\`; test assertions must use `path.join()` not hardcoded `/` paths
 
-## Next Steps
-1. **Phase 4.1 - IPC Bridge Routing**: Connect the mock UI buttons in `App.tsx` (like "Analyze File" and "Execute Repair") directly to the pre-built Electron handlers located in `electron/services/`.
-2. **Phase 4.2 - Job Queue Processing**: Finalize the event streaming logic so that the Python Engine's `stdout` can be piped directly into the React UI's `<ExecutionStep />` animated console block.
-3. **Phase 4.3 - E2E Testing**: Spin up the full application natively (bypassing the dev server) and perform an End-to-End test of a genuinely corrupt file flowing from the UI, through the bridge, into the Python engine, and back out onto disk.
-4. **Phase 5 - Artifact Production**: Compile the Electron application into a distributable executable for the user.
+## Next Steps (prioritized)
+1. **Manual QA — happy path:** Start PRS → open SPO → Settings → Scan Warnings → verify "🔧 Repair" button appears with a "PRS ready" indicator
+2. **Manual QA — PRS unavailable:** Stop PRS → verify button is disabled with tooltip "Photo Repair Shop is not running"
+3. **Manual QA — repair flow:** Click Repair on a corrupt file → confirm progress bar updates every 2s → row removed on success
+4. **Manual QA — verification failure:** Force a bad output file → confirm row stays with "Unrepairable" badge and `scan_errors.is_unrepairable = 1` in DB
+5. **Manual QA — Settings:** Configure PRS path via Settings → Integrations → Browse → confirm path persists after restart
+6. **Write `aiChangeLog/phase-15.md`** (or whichever phase this maps to) documenting all changes
+7. **Investigate pre-existing failures** (FaceRepository, Scanner) if desired — they are unrelated to this work
 
 ## Opening Instruction
-*Copy and paste the following line into your next chat to instantly prime the AI:*
-
-> Please review the `CONTEXT_BRIDGE.md` file in the root directory and the latest entry in `aiChangeLog/` to understand the current state of the Photo Repair Shop; our immediate goal is to begin Phase 4 by wiring the React UI's IPC events directly into the Electron backend services.
+> "We completed the SPO ↔ PRS integration (all 36 new tests pass). The working directory should be `J:/Projects/smart-photo-organizer`. Read `CONTEXT_BRIDGE.md` in the photo-repair-shop project for full details, then help me run manual QA or write the aiChangeLog for this phase."

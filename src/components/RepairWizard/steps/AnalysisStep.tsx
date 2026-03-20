@@ -107,20 +107,34 @@ export const AnalysisStep: React.FC<AnalysisStepProps> = ({ filePath, onAnalysis
                 </div>
             </div>
 
-            {result.isCorrupted && viewMode === 'diagnostics' && (
+            {viewMode === 'diagnostics' && (
                 <div className="grid grid-cols-2 gap-8">
                     {/* Diagnostics Column */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-text-muted uppercase tracking-wider text-sm">Diagnostics</h3>
                         <ul className="space-y-3">
-                            {result.corruptionTypes.map(c => (
+                            {result.isCorrupted ? (
+                                result.corruptionTypes.map(c => (
+                                    <motion.li
+                                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                                        key={c} className="bg-surface p-4 rounded-lg border border-surface-hover shadow-sm flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-danger"></div>
+                                        <span className="font-mono text-sm">{c.replace('_', ' ')}</span>
+                                    </motion.li>
+                                ))
+                            ) : (
                                 <motion.li
                                     initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                    key={c} className="bg-surface p-4 rounded-lg border border-surface-hover shadow-sm flex items-center gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-danger"></div>
-                                    <span className="font-mono text-sm">{c.replace('_', ' ')}</span>
+                                    className="bg-surface p-4 rounded-lg border border-surface-hover shadow-sm flex flex-col gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-success"></div>
+                                        <span className="font-mono text-sm">Metadata and format structurally intact</span>
+                                    </div>
+                                    <p className="text-xs text-text-muted ml-5">
+                                        Note: Recovered files may still contain trailing garbage or padding that prevents correct rendering. You can force a repair if the image is displaying incorrectly.
+                                    </p>
                                 </motion.li>
-                            ))}
+                            )}
                         </ul>
                     </div>
 
@@ -128,25 +142,36 @@ export const AnalysisStep: React.FC<AnalysisStepProps> = ({ filePath, onAnalysis
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-primary uppercase tracking-wider text-sm">Suggested Strategies</h3>
                         <div className="space-y-4">
-                            {result.suggestedStrategies.map((s, idx) => (
+                            {result.isCorrupted ? (
+                                result.suggestedStrategies.map((s, idx) => (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
+                                        key={s.strategy} className="bg-primary/5 border border-primary/20 p-5 rounded-xl hover:bg-primary/10 transition-colors cursor-default">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h4 className="font-semibold text-primary">{s.strategy}</h4>
+                                            <span className={`text-xs px-2 py-1 rounded-full ${s.confidence === 'high' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'} `}>
+                                                {s.confidence} confidence
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-text-muted">{s.reason}</p>
+                                    </motion.div>
+                                ))
+                            ) : (
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
-                                    key={s.strategy} className="bg-primary/5 border border-primary/20 p-5 rounded-xl hover:bg-primary/10 transition-colors cursor-default">
+                                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                    className="bg-surface-hover/50 border border-surface-hover p-5 rounded-xl cursor-default">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-semibold text-primary">{s.strategy}</h4>
-                                        <span className={`text-xs px-2 py-1 rounded-full ${s.confidence === 'high' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'} `}>
-                                            {s.confidence} confidence
-                                        </span>
+                                        <h4 className="font-semibold text-text-muted">Force Manual Repair</h4>
                                     </div>
-                                    <p className="text-sm text-text-muted">{s.reason}</p>
+                                    <p className="text-sm text-text-muted">You can force a manual repair strategy (such as extracting embedded previews or using a donor file) if the image is visually corrupted.</p>
                                 </motion.div>
-                            ))}
+                            )}
                         </div>
 
                         <button
                             onClick={() => onAnalysisComplete(result)}
                             className="w-full mt-6 py-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-medium transition-all shadow-lg active:scale-95">
-                            Configure Repair Workflow
+                            {result.isCorrupted ? 'Configure Repair Workflow' : 'Force Repair Workflow'}
                         </button>
                     </div>
                 </div>

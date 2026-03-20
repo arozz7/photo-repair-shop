@@ -6,7 +6,7 @@ import path from 'path';
 
 const repairSchema = z.object({
     filePath: z.string().min(1),
-    strategy: z.enum(['header-grafting', 'preview-extraction', 'marker-sanitization']),
+    strategy: z.enum(['header-grafting', 'preview-extraction', 'marker-sanitization', 'mcu-alignment', 'png-chunk-rebuilder', 'heic-box-recovery', 'tiff-ifd-rebuilder']),
     outputPath: z.string().min(1),
     referenceFilePath: z.string().optional(),
     candidateReferences: z.array(z.string()).optional(),
@@ -27,7 +27,7 @@ export function createRepairRouter(deps: ServerDependencies): Router {
             }
 
             // Validate reference requirement
-            if (body.strategy === 'header-grafting') {
+            if (body.strategy === 'header-grafting' || body.strategy === 'mcu-alignment') {
                 if (!body.referenceFilePath && (!body.candidateReferences || body.candidateReferences.length === 0)) {
                     res.status(400).json({ error: "header-grafting requires either 'referenceFilePath' or 'candidateReferences'." });
                     return;

@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && tsc -p electron/tsconfig.json",
+    "build": "tsc -b && tsc -p electron/tsconfig.json --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

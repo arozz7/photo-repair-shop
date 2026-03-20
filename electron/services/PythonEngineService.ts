@@ -35,6 +35,14 @@ export class PythonEngineService implements IRepairEngine {
         } else {
             this.pythonPath = path.join(projectRoot, 'engine', '.venv', 'bin', 'python');
         }
+
+        // Fix for packaged electron app where engine is unpacked from asar
+        if (this.engineScript.includes('app.asar')) {
+            this.engineScript = this.engineScript.replace('app.asar', 'app.asar.unpacked');
+        }
+        if (this.pythonPath.includes('app.asar')) {
+            this.pythonPath = this.pythonPath.replace('app.asar', 'app.asar.unpacked');
+        }
     }
 
     async executeRepair(config: EngineConfig, onProgress: (event: EngineProgressEvent) => void): Promise<void> {

@@ -1,4 +1,4 @@
-import { JpegParseResult } from './parser';
+import type { JpegParseResult } from './parser';
 import { analyzeEntropyMap } from './entropy';
 
 export interface McuDetectionResult {

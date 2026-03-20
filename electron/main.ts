@@ -176,8 +176,9 @@ if (!gotTheLock) {
 
             let calculatedDefaultPath = defaultPath || 'repaired-photo.jpg';
             if (!defaultPath && job.original_path && job.original_path !== 'unknown') {
-                const parsed = path.parse(job.original_path);
-                calculatedDefaultPath = path.join(parsed.dir, `${parsed.name}-repaired${parsed.ext}`);
+                const parsedOriginal = path.parse(job.original_path);
+                const parsedRepaired = path.parse(job.repaired_path);
+                calculatedDefaultPath = path.join(parsedOriginal.dir, `${parsedOriginal.name}-repaired${parsedRepaired.ext}`);
             }
 
             const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
